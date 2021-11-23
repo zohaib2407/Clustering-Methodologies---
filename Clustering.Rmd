@@ -1,0 +1,101 @@
+---
+title: "Clustering"
+author: "Zohaib Sheikh"
+date: "21/11/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+**Loading relevant libraries**
+``` {r warning=FALSE,message=FALSE, error=FALSE}
+library(tidyverse)
+library(lubridate)
+library(pROC)
+library(readxl)
+library("writexl")
+library(data.table)
+library(tidytext)
+library(SnowballC)
+library(textstem)
+library("textdata")
+library(factoextra)
+library(dbscan)
+library(cluster)
+```
+
+**Reading Data**
+``` {r warning=FALSE,message=FALSE, error=FALSE}
+data<-read_excel("D:/Fall'21 - UIC/IDS 572 - Data Mining/Assignments/Clustering/market_data_cluster.xlsx")
+df<-data
+head(df)
+```
+
+
+**Cleaning data**
+``` {r warning=FALSE,message=FALSE, error=FALSE}
+x<-colnames(df)
+x<-gsub(' ','',x)
+x
+x<-gsub(',','.',x)
+x
+x<-gsub('/','.',x)
+x
+colnames(df)<-x
+head(df)
+df<-df%>%subset(select=-c(Vol.Tran))
+colSums(is.na(df))
+df[1:8]<-sapply(df[1:8],as.factor)
+df1<-df %>% rowwise() %>% mutate(maxBr=max(Br.Cd.57.144, Br.Cd.55, Br.Cd.481,Br.Cd.352, Br.Cd.5))
+
+```
+
+**Clustering using K-means**
+``` {r warning=FALSE,message=FALSE, error=FALSE}
+PURCHASE_BEHAVIOR <- c('No.ofBrands', 'BrandRuns', 'No.ofTrans', 'Value', 'Trans.BrandRuns','maxBr', 'Others999')
+kmClus_pb<- df1 %>% select(PURCHASE_BEHAVIOR) %>% scale() %>% kmeans(centers=3, nstart=25)
+kmClus_pb
+fviz_cluster( kmClus_pb, data=df1 %>% select(PURCHASE_BEHAVIOR))
+fviz_nbclust( df1 %>% select(PURCHASE_BEHAVIOR) %>% scale(), kmeans, method = "wss")
+fviz_nbclust( df1 %>% select(PURCHASE_BEHAVIOR) %>% scale(), kmeans, method = "silhouette")
+```
+
+**Clustering - Hierarchial**
+``` {r warning=FALSE,message=FALSE, error=FALSE}
+xpb<-df1 %>% select(PURCHASE_BEHAVIOR) %>% scale()
+xdist <- dist (xpb, method = "euclidean")
+#using hclust
+hierC_pb <- hclust (xdist, method = "average" )
+hierC_pb_w <- hclust(xdist, method = "ward.D" )
+hierC_pb_c <- hclust(xdist, method = "complete" )
+
+plot(hierC_pb, cex=0.3, hang=-3, main='hclust - average')
+
+#check the agglomerative coeff given by agnes
+hierC_pb_ag_c <- agnes(xdist, method = "complete" )
+hierC_pb_ag_c$ac
+hierC_pb_ag_a <- agnes(xdist, method = "average" )
+hierC_pb_ag_a$ac
+hierC_pb_ag_w <- agnes(xdist, method = "ward" )
+hierC_pb_ag_w$ac
+
+fviz_dend(hierC_pb_ag_w, k=3, color_labels_by_k = TRUE, type="circular",
+rect=TRUE, main="agnes - Wards")
+fviz_dend( hierC_pb_ag_w, k=3, rect=TRUE, color_labels_by_k = FALSE, main="agnes - Wards")
+
+
+fviz_nbclust ( xpb, FUN = hcut, method = "wss")
+fviz_nbclust ( xpb, FUN = hcut, method = "silhouette")
+```
+**Clustering - Density Based (DBSCAN)**
+``` {r warning=FALSE,message=FALSE, error=FALSE}
+data("multishapes")
+head(multishapes)
+multishapes %>% ggplot(aes(x=x,y=y, col=as.factor(shape)))+geom_point()
+msDbscan <- dbscan( multishapes[,1:2], eps = 0.5, minPts = 5)
+fviz_cluster(msDbscan, data=multishapes[,1:2], geom="point", ellipse = FALSE, main="dbscan eps=0.5, minPts=5")
+kNNdistplot( multishapes[,1:2], k=4)
+fviz_cluster(msDbscan, data=multishapes[,1:2], geom="point", ellipse = FALSE, main="dbscan eps=0.15, minPts=4")
+```
+
+
